@@ -1,68 +1,70 @@
-vcpkg_check_linkage(ONLY_STATIC_LIBRARY ONLY_DYNAMIC_CRT)
+vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
+
+vcpkg_fail_port_install(ON_TARGET "OSX" "Linux")
 
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO Microsoft/DirectXTK
-    REF sept2020
-    SHA512 fcb98ffee960494f4ba9a3edd802dce7eacf8e0d9a17f712ea971cdf6c13d9ee4e403deecbcd2c8a4555301316334e6f987d6b051b7cb87e2ae76e41f213e91e
+    REF jan2021
+    SHA512 c0e8df3ef3a276169c219798978eb948947ba63f49fd08be914eee87ed4bb05a4e33e3a4d1c06c4e932f5ad8fa50a14e0b53a9b9f6f749aa15174f343a17555c
     HEAD_REF master
 )
 
-IF (TRIPLET_SYSTEM_ARCH MATCHES "x86")
-    SET(BUILD_ARCH "Win32")
-ELSE()
-    SET(BUILD_ARCH ${TRIPLET_SYSTEM_ARCH})
-ENDIF()
-
-if (VCPKG_PLATFORM_TOOLSET STREQUAL "v140")
-    set(VS_VERSION "2015")
-elseif (VCPKG_PLATFORM_TOOLSET STREQUAL "v141")
-    set(VS_VERSION "2017")
-elseif (VCPKG_PLATFORM_TOOLSET STREQUAL "v142")
-    set(VS_VERSION "2019")
-else()
-    message(FATAL_ERROR "Unsupported platform toolset.")
-endif()
+vcpkg_check_features(
+    OUT_FEATURE_OPTIONS FEATURE_OPTIONS
+    FEATURES
+        xaudio2-9 BUILD_XAUDIO_WIN10
+        xaudio2-8 BUILD_XAUDIO_WIN8
+)
 
 if(VCPKG_TARGET_IS_UWP)
-    set(SLN_NAME "Windows10_${VS_VERSION}")
+  set(EXTRA_OPTIONS -DBUILD_TOOLS=OFF)
 else()
-    if(TRIPLET_SYSTEM_ARCH STREQUAL "arm64")
-        set(SLN_NAME "Desktop_${VS_VERSION}_Win10")
-    else()
-        set(SLN_NAME "Desktop_${VS_VERSION}")
-    endif()
+  set(EXTRA_OPTIONS -DBUILD_TOOLS=ON)
 endif()
 
-vcpkg_build_msbuild(
-    PROJECT_PATH ${SOURCE_PATH}/DirectXTK_${SLN_NAME}.sln
-    PLATFORM ${TRIPLET_SYSTEM_ARCH}
+vcpkg_configure_cmake(
+    SOURCE_PATH ${SOURCE_PATH}
+    PREFER_NINJA
+    OPTIONS ${FEATURE_OPTIONS} ${EXTRA_OPTIONS}
 )
 
-file(INSTALL
-    ${SOURCE_PATH}/Inc/
-    DESTINATION ${CURRENT_PACKAGES_DIR}/include/DirectXTK
-)
-
-file(INSTALL
-    ${SOURCE_PATH}/Bin/${SLN_NAME}/${BUILD_ARCH}/Release/DirectXTK.lib
-    ${SOURCE_PATH}/Bin/${SLN_NAME}/${BUILD_ARCH}/Release/DirectXTK.pdb
-    DESTINATION ${CURRENT_PACKAGES_DIR}/lib)
-
-file(INSTALL
-    ${SOURCE_PATH}/Bin/${SLN_NAME}/${BUILD_ARCH}/Debug/DirectXTK.lib
-    ${SOURCE_PATH}/Bin/${SLN_NAME}/${BUILD_ARCH}/Debug/DirectXTK.pdb
-    DESTINATION ${CURRENT_PACKAGES_DIR}/debug/lib)
+vcpkg_install_cmake()
+vcpkg_fixup_cmake_targets(CONFIG_PATH cmake)
 
 if(NOT VCPKG_TARGET_IS_UWP)
-    set(DXTK_TOOL_PATH ${CURRENT_PACKAGES_DIR}/tools/directxtk)
-    file(MAKE_DIRECTORY ${DXTK_TOOL_PATH})
-    file(INSTALL
-        ${SOURCE_PATH}/MakeSpriteFont/bin/Release/MakeSpriteFont.exe
-        DESTINATION ${DXTK_TOOL_PATH})
-    file(INSTALL
-        ${SOURCE_PATH}/XWBTool/Bin/Desktop_${VS_VERSION}/${BUILD_ARCH}/Release/XWBTool.exe
-        DESTINATION ${DXTK_TOOL_PATH})
+  vcpkg_copy_tools(
+        TOOL_NAMES XWBTool
+        SEARCH_DIR ${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/bin/CMake
+    )
+
+  vcpkg_install_msbuild(
+      SOURCE_PATH ${SOURCE_PATH}
+      PROJECT_SUBPATH MakeSpriteFont/MakeSpriteFont.csproj
+      PLATFORM AnyCPU
+  )
+
+elseif((VCPKG_HOST_IS_WINDOWS) AND (VCPKG_TARGET_ARCHITECTURE MATCHES x64))
+  vcpkg_download_distfile(makespritefont
+    URLS "https://github.com/Microsoft/DirectXTK/releases/download/jan2021/MakeSpriteFont.exe"
+    FILENAME "makespritefont.exe"
+    SHA512 0cca19694fd3625c5130a85456f7bf1dabc8c5f893223c19da134a0c4d64de853f7871644365dcec86012543f3a59a96bfabd9e51947648f6d82480602116fc4
+  )
+
+  vcpkg_download_distfile(xwbtool
+    URLS "https://github.com/Microsoft/DirectXTK/releases/download/jan2021/XWBTool.exe"
+    FILENAME "xwbtool.exe"
+    SHA512 91c9d0da90697ba3e0ebe4afcc4c8e084045b76b26e94d7acd4fd87e5965b52dd61d26038f5eb749a3f6de07940bf6e3af8e9f19d820bf904fbdb2752b78fce9
+  )
+
+  file(MAKE_DIRECTORY "${CURRENT_PACKAGES_DIR}/tools/directxtk/")
+
+  file(INSTALL
+    ${DOWNLOADS}/makespritefont.exe
+    ${DOWNLOADS}/xwbtool.exe
+    DESTINATION ${CURRENT_PACKAGES_DIR}/tools/directxtk/)
 endif()
+
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")
 
 file(INSTALL ${SOURCE_PATH}/LICENSE DESTINATION ${CURRENT_PACKAGES_DIR}/share/${PORT} RENAME copyright)

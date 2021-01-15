@@ -8,6 +8,16 @@
 #include <vcpkg/vcpkgcmdarguments.h>
 #include <vcpkg/vcpkgpaths.h>
 
+namespace
+{
+    std::string remove_trailing_slashes(std::string argument)
+    {
+        using fs::is_slash;
+        argument.erase(std::find_if_not(argument.rbegin(), argument.rend(), is_slash).base(), argument.end());
+        return argument;
+    }
+}
+
 namespace vcpkg::Commands::Create
 {
     const CommandStructure COMMAND_STRUCTURE = {
@@ -22,9 +32,13 @@ namespace vcpkg::Commands::Create
     {
         (void)args.parse_arguments(COMMAND_STRUCTURE);
         const std::string port_name = args.command_arguments.at(0);
-        const std::string url = args.command_arguments.at(1);
+        const std::string url = remove_trailing_slashes(args.command_arguments.at(1));
 
-        std::vector<System::CMakeVariable> cmake_args{{"CMD", "CREATE"}, {"PORT", port_name}, {"URL", url}};
+        std::vector<System::CMakeVariable> cmake_args{
+            {"CMD", "CREATE"},
+            {"PORT", port_name},
+            {"URL", url},
+            {"PORT_PATH", fs::generic_u8string(paths.builtin_ports_directory() / fs::u8path(port_name))}};
 
         if (args.command_arguments.size() >= 3)
         {
@@ -37,7 +51,7 @@ namespace vcpkg::Commands::Create
             cmake_args.emplace_back("FILENAME", zip_file_name);
         }
 
-        const std::string cmd_launch_cmake = make_cmake_cmd(paths, paths.ports_cmake, std::move(cmake_args));
+        auto cmd_launch_cmake = make_cmake_cmd(paths, paths.ports_cmake, std::move(cmake_args));
         return System::cmd_execute_clean(cmd_launch_cmake);
     }
 
