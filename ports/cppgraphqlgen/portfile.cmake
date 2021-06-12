@@ -1,8 +1,8 @@
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO microsoft/cppgraphqlgen
-    REF fb4a589c84c102d867e7bfb03884d40f7776315b
-    SHA512 88fedd83b49ae25f2165cff8e3a5e3e46ed853312658924f08b3192c790e92583dc8b8f7a88f39ec17798bd7d986143a78633a89d3867400539c4d315015e29b
+    REF v3.6.0
+    SHA512 148751b1db1b3e917e74ef93fe3533a29153f0b5d1a20544eda32d0376e2c6f5cfc2d60fbc9d077d595e7072d0b6a36dbf8f2524903db40b576ee48196b2c3e8
     HEAD_REF main
 )
 
@@ -26,7 +26,9 @@ vcpkg_install_cmake()
 
 vcpkg_fixup_cmake_targets()
 
-vcpkg_copy_tool_dependencies(${CURRENT_PACKAGES_DIR}/tools/cppgraphqlgen)
+vcpkg_copy_tools(
+    TOOL_NAMES schemagen
+    SEARCH_DIR ${CURRENT_PACKAGES_DIR}/tools/cppgraphqlgen)
 
 vcpkg_copy_pdbs()
 
